@@ -12,7 +12,7 @@ import {
   ImageBackground,
 } from "react-native";
 import CheckBox from "react-native-check-box";
-import api from "../APIsipdus/services/api"; // 🔹 import da API
+import api from "../services/api"; // 🔹 import da API
 
 const { width } = Dimensions.get("window");
 

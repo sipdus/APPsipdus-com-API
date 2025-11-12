@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { BLEContext } from "./hooks/BLEContext";
-import api from "../APIsipdus/services/api";
+import api from "../services/api";
 
 export default function GlicemiaScreen({ navigation }) {
   const { glucose } = useContext(BLEContext);

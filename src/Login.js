@@ -9,7 +9,7 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
-import api from "../APIsipdus/services/api"; // 🔹 import da API
+import api from "../services/api"; // 🔹 import da API
 
 const windowWidth = Dimensions.get("window").width;
 
