@@ -1,4 +1,4 @@
-const BASE_URL = 'https://api-sipdus-mklderbjp-giovanas-projects-936114ef.vercel.app';
+const BASE_URL = 'https://api-sipdus-g4cuyl68s-giovanas-projects-936114ef.vercel.app';
 const TIMEOUT = 5000;
 
 const api = {
