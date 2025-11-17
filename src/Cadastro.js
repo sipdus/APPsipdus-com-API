@@ -23,42 +23,48 @@ export default function Cadastro({ navigation }) {
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [concordaTermos, setConcordaTermos] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // 🔹 Função para cadastrar usuário na API
+  // 🔹 Função para cadastrar usuário na API - CORRIGIDA
+  const handleCadastro = async () => {
+    if (!usuario || !email || !senha || !confirmarSenha) {
+      Alert.alert("Erro", "Por favor, preencha todos os campos!");
+      return;
+    }
 
-const handleCadastro = async () => {
-  if (!usuario || !email || !senha || !confirmarSenha) {
-    Alert.alert("Por favor, preencha todos os campos!");
-    return;
-  }
+    if (senha !== confirmarSenha) {
+      Alert.alert("Erro", "As senhas não coincidem!");
+      return;
+    }
 
-  if (senha !== confirmarSenha) {
-    Alert.alert("As senhas não coincidem!");
-    return;
-  }
+    if (!concordaTermos) {
+      Alert.alert("Erro", "Você deve concordar com os termos de uso.");
+      return;
+    }
 
-  if (!concordaTermos) {
-    Alert.alert("Você deve concordar com os termos de uso.");
-    return;
-  }
+    setLoading(true);
 
-  try {
-    const response = await api.post("/register", {
-      nome: usuario,
-      email,
-      senha,
-    });
+    try {
+      console.log("🔄 Tentando cadastrar usuário...", { usuario, email });
 
-    console.log(response); // 🔹 Aqui não precisa de .data, pois seu fetch já retorna JSON
-    Alert.alert("Usuário cadastrado com sucesso!");
-    navigation.navigate("Login");
-  } catch (error) {
-    console.log(error.message);
-    Alert.alert("Erro ao cadastrar usuário.");
-  }
-};
+      // ✅ USE A API CONFIGURADA em vez de fetch direto
+      const response = await api.post("/users/register", {
+        name: usuario,
+        email: email,
+        senha: senha,
+      });
 
-  
+      console.log("✅ Usuário cadastrado:", response);
+      Alert.alert("Sucesso", "Usuário cadastrado com sucesso!");
+      navigation.navigate("Login");
+
+    } catch (error) {
+      console.log("❌ Erro no cadastro:", error);
+      Alert.alert("Erro", error.message || "Erro ao cadastrar usuário.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -98,6 +104,7 @@ const handleCadastro = async () => {
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            autoCapitalize="none"
           />
 
           <Text style={styles.label}>Senha:</Text>
@@ -130,8 +137,14 @@ const handleCadastro = async () => {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleCadastro}>
-            <Text style={styles.buttonText}>Cadastrar</Text>
+          <TouchableOpacity 
+            style={[styles.button, loading && styles.buttonDisabled]} 
+            onPress={handleCadastro}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "Cadastrando..." : "Cadastrar"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -149,8 +162,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
   },
-
-  // TOPO BRANCO
   topContainer: {
     backgroundColor: "#fff",
     width: "100%",
@@ -173,8 +184,6 @@ const styles = StyleSheet.create({
     marginTop: -138,
     marginLeft: 25,
   },
-
-  // PARTE DE BAIXO AZUL
   formContainer: {
     flex: 1,
     backgroundColor: "#00bcd4",
@@ -222,10 +231,12 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
     color: "#000000",
     fontWeight: "bold",
     fontSize: 16,
   },
 });
-

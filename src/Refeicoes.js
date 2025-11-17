@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,36 @@ import {
   Image,
   StyleSheet,
   ScrollView,
+  Alert,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from "../services/api";
 
 export default function RefeicaoScreen({ navigation }) {
   const [pesquisa, setPesquisa] = useState("");
   const [itens, setItens] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // ✅ CARREGA O USUÁRIO LOGADO
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        const userObj = JSON.parse(userData);
+        setUser(userObj);
+        console.log("👤 Usuário carregado:", userObj.id, userObj.name);
+      } else {
+        console.log("❌ Nenhum usuário no AsyncStorage");
+      }
+    } catch (error) {
+      console.log("❌ Erro ao carregar usuário:", error);
+    }
+  };
 
   const alimentos = [
     { id: "1", nome: "Arroz" },
@@ -30,34 +55,63 @@ export default function RefeicaoScreen({ navigation }) {
   // Adiciona item se ainda não estiver na sacola
   const adicionarItem = (item) => {
     const jaExiste = itens.find((i) => i.id === item.id);
-    if (!jaExiste) setItens([...itens, item]);
+    if (!jaExiste) {
+      setItens([...itens, item]);
+      Alert.alert("Sucesso", `${item.nome} adicionado à refeição!`);
+    } else {
+      Alert.alert("Aviso", `${item.nome} já está na refeição!`);
+    }
   };
 
   // Remove item da sacola
   const removerItem = (id) => {
+    const itemRemovido = itens.find(item => item.id === id);
     setItens(itens.filter((i) => i.id !== id));
-  };
-
-  // Função para salvar a refeição
-  const salvarRefeicao = () => {
-    if (itens.length === 0) {
-      alert("Adicione pelo menos um alimento antes de salvar!");
-      return;
+    if (itemRemovido) {
+      Alert.alert("Removido", `${itemRemovido.nome} removido da refeição!`);
     }
-
-    axios.post("http://localhost:3000/api/refeicoes", {
-      alimentos: itens.map((item) => item.id),
-      data: new Date(), // data da refeição
-    })
-    .then((res) => {
-      alert("Refeição salva com sucesso!");
-      setItens([]); // limpa a sacola
-    })
-    .catch((err) => {
-      console.error("Erro ao salvar refeição:", err.message);
-      alert("Erro ao salvar a refeição.");
-    });
   };
+
+  // 🔹 Função para salvar a refeição - CORRIGIDA
+  // RefeicaoScreen.js - FUNÇÃO salvarRefeicao CORRIGIDA
+const salvarRefeicao = async () => {
+  if (itens.length === 0) {
+    Alert.alert("Atenção", "Adicione pelo menos um alimento antes de salvar!");
+    return;
+  }
+
+  if (!user) {
+    Alert.alert("Erro", "Usuário não identificado. Recarregue a página.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    console.log("🔄 Salvando refeição para usuário:", user.id);
+
+    // ✅ ADICIONE A DESCRIÇÃO OBRIGATÓRIA
+    const response = await api.post("/refeicoes", {
+      user_id: user.id,
+      descricao: `Refeição com ${itens.length} alimento(s)`, // ✅ DESCRIÇÃO OBRIGATÓRIA
+      alimentos: itens.map((item) => ({
+        id: item.id,
+        nome: item.nome
+      })),
+      data: new Date().toISOString(),
+    });
+
+    console.log("✅ Refeição salva:", response);
+    Alert.alert("Sucesso", "Refeição salva com sucesso!");
+    setItens([]); // limpa a sacola
+    
+  } catch (error) {
+    console.log("❌ Erro ao salvar refeição:", error);
+    Alert.alert("Erro", error.message || "Erro ao salvar a refeição.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>
@@ -71,7 +125,10 @@ export default function RefeicaoScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.userText}>(User):</Text>
+      {/* ✅ MOSTRA O NOME REAL DO USUÁRIO */}
+      <Text style={styles.userText}>
+        {user ? `${user.name}:` : "Carregando..."}
+      </Text>
 
       <View style={styles.blueContainer}>
         <ScrollView
@@ -131,16 +188,29 @@ export default function RefeicaoScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
               ))}
+
+              {/* Botão Salvar Refeição */}
+              <TouchableOpacity
+                style={[styles.saveButton, loading && styles.buttonDisabled]}
+                onPress={salvarRefeicao}
+                disabled={loading}
+              >
+                <Text style={styles.saveButtonText}>
+                  {loading ? "Salvando..." : "Salvar Refeição"}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* Botão Salvar Refeição */}
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={() => salvarRefeicao()}
-          >
-            <Text style={styles.saveButtonText}>Salvar Refeição</Text>
-          </TouchableOpacity>
+          {/* Mensagem quando não há itens */}
+          {itens.length === 0 && (
+            <View style={styles.emptyMessage}>
+              <Text style={styles.emptyMessageText}>
+                Nenhum alimento adicionado ainda.{"\n"}
+                Pesquise e adicione alimentos à sua refeição!
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </View>
 
@@ -210,6 +280,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: "center",
     marginBottom: 10,
+    fontWeight: "bold",
   },
   searchContainer: {
     flexDirection: "row",
@@ -219,7 +290,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 20,
   },
-  input: { flex: 1, paddingVertical: 8, paddingHorizontal: 12 },
+  input: { 
+    flex: 1, 
+    paddingVertical: 8, 
+    paddingHorizontal: 12,
+    fontSize: 16,
+  },
   searchIcon: { width: 28, height: 28, tintColor: "#00BCD4" },
   cardItem: {
     flexDirection: "row",
@@ -230,6 +306,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
     marginBottom: 10,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   itemText: { fontSize: 16, fontWeight: "600", color: "#000" },
   addIcon: { width: 25, height: 25 },
@@ -240,14 +321,19 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: 15,
     marginTop: 20,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   sacolaHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   sacolaTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#000",
     marginLeft: 8,
@@ -257,23 +343,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginVertical: 4,
+    marginVertical: 6,
+    paddingVertical: 4,
   },
-  sacolaItemText: { fontSize: 16, color: "#000" },
+  sacolaItemText: { fontSize: 16, color: "#000", flex: 1 },
   removeIcon: { width: 20, height: 20, resizeMode: "contain" },
 
   // Botão Salvar Refeição
   saveButton: {
     backgroundColor: "#00796B",
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 25,
-    marginVertical: 20,
+    marginTop: 15,
     alignItems: "center",
+    elevation: 2,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+  },
+
+  // Mensagem vazia
+  emptyMessage: {
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 20,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  emptyMessageText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 22,
   },
 
   // RODAPÉ

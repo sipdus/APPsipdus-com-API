@@ -9,35 +9,51 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
-import api from "../services/api"; // 🔹 import da API
+import api from "../services/api";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const windowWidth = Dimensions.get("window").width;
 
 export default function Login({ navigation }) {
   const [Email, setEmail] = useState("");
   const [Senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // 🔹 Função para logar usuário
-  const handleLogin = async () => {
-    if (!Email || !Senha) {
-      Alert.alert("Preencha email e senha!");
-      return;
-    }
+const handleLogin = async () => {
+  if (!Email || !Senha) {
+    Alert.alert("Preencha email e senha!");
+    return;
+  }
 
-    try {
-      const response = await api.post("/users/login", {
-        email: Email,
-        senha: Senha,
-      });
+  try {
+    const response = await api.post("/users/login", {
+      email: Email,
+      senha: Senha,
+    });
 
-      console.log(response.data);
-      Alert.alert("Login realizado com sucesso!");
-      navigation.navigate("TelaInicial");
-    } catch (error) {
-      console.log(error.response?.data || error.message);
-      Alert.alert("Usuário ou senha incorretos!");
+    console.log("✅ Resposta completa do login:", response);
+    
+    // ✅ VERIFIQUE A ESTRUTURA DA RESPOSTA
+    if (response.user) {
+      // Se a resposta tem .user
+      await AsyncStorage.setItem('user', JSON.stringify(response.user));
+      console.log("💾 Usuário salvo (response.user):", response.user);
+    } else if (response.data?.user) {
+      // Se a resposta tem .data.user
+      await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
+      console.log("💾 Usuário salvo (response.data.user):", response.data.user);
+    } else {
+      console.log("❌ Estrutura inesperada:", response);
     }
-  };
+    
+    Alert.alert("Login realizado com sucesso!");
+    navigation.navigate("TelaInicial");
+  } catch (error) {
+    console.log("❌ Erro no login:", error);
+    Alert.alert("Usuário ou senha incorretos!");
+  }
+};
 
   return (
     <View style={styles.container}>
